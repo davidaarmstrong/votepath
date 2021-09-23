@@ -1,0 +1,16 @@
+Package: votepath
+Title: Path Models for Analyzing Votes
+Version: 0.0.1
+Authors@R: 
+    person(given = "Dave",
+           family = "Armstrongt",
+           role = c("aut", "cre"),
+           email = "dave@quantoid.net",
+           comment = c(ORCID = "0000-0002-9358-2489"))
+Description: Simulates mediated effects in block-recursive vote choice models.  
+Depends: MASS, nnet, progress, stats
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.1.1
