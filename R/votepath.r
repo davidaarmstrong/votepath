@@ -100,6 +100,7 @@ draw_val <- function(obj,
 #' @param x a vector of values to be evaluated
 #' @param ... other arguments to be passed down, currently not implemented.
 #'
+#' @importFrom stats na.omit
 #' @export
 find_type <- function(x, ...){
   if(is.numeric(x) & length(unique(na.omit(x))) > 2){
@@ -132,12 +133,14 @@ find_type <- function(x, ...){
 #' @param data A data frame containing all of the variables in the `blocks` list.
 #' @param ... Other arguments to be passed down.
 #'
-#' @importFrom stats lm glm family binomial
+#' @importFrom stats lm glm family binomial reformulate
 #' @importFrom MASS polr
 #' @importFrom nnet multinom
 #'
 #' @export
-vote_path <- function(blocks, models = NULL, data, ...){
+vote_path <- function(blocks,
+                      models = NULL,
+                      data, ...){
 
   types <- sapply(c(unlist(blocks)), function(nm)find_type(data[[nm]]))
   allvars <- c(unlist(blocks))
@@ -154,6 +157,9 @@ vote_path <- function(blocks, models = NULL, data, ...){
       if(types[blocks[[i]][j]] %in% c("polr", "multinom")){
         arglist$Hess <- TRUE
       }
+      if(types[blocks[[i]][j]] == "multinom"){
+        arglist$maxit <- 250
+      }
       if(types[blocks[[i]][j]] == "glm"){
         arglist$family <- binomial
       }
@@ -167,6 +173,9 @@ vote_path <- function(blocks, models = NULL, data, ...){
                   data=data)
   if(types[dv] %in% c("polr", "multinom")){
     arglist$Hess <- TRUE
+  }
+  if(types[dv] == "multinom"){
+    arglist$maxit <- 250
   }
   if(types[dv] == "glm"){
     arglist$family <- binomial
@@ -193,17 +202,29 @@ vote_path <- function(blocks, models = NULL, data, ...){
 #' changed is a factor, the `vals` vector also has to be a factor with the same levels as the variable in `varname`.
 #' @param b_var Logical indicating whether sampling variability on the coefficients should be incorporated in the simulation.
 #' @param R Number of simulations to be conducted.
+#' @param lastMod Should the prediction from the last model be a draw or a the expected value?
 #' @param ... Other arguments to be passed down.
 #'
 #' @importFrom progress progress_bar
+#' @importFrom stats sd
 #' @export
 #'
 #'
 #'
-sim_effect <- function(obj, data, varname, diffchange=c("unit", "sd"), vals=NULL, b_var = TRUE, R=100, ...){
+sim_effect <- function(obj,
+                       data,
+                       varname,
+                       diffchange=c("unit", "sd"),
+                       vals=NULL,
+                       b_var = TRUE,
+                       R=100,
+                       lastMod = c("expected", "draw"),
+                       ...){
   mods <- obj$models
   blocks <- obj$blocks
-  out_i <- out_d <- out_t <- NULL
+  lastMod <- match.arg(lastMod)
+  dv <- blocks[[length(blocks)]]
+  out_i <- out_d <- out_t <- out_br <-  NULL
   pb <- progress_bar$new(total = R)
   if(!is.null(vals) & length(vals) != 2)stop("vals must be a vector of length 2\n")
   if(!is.null(vals) & inherits(data[[varname]], "factor") & !inherits(vals, "factor"))stop("vals must have the same class as varname\n")
@@ -214,38 +235,75 @@ sim_effect <- function(obj, data, varname, diffchange=c("unit", "sd"), vals=NULL
                    levels=1:length(levs),
                    labels=levs)
   }
-  for(k in 1:R){
-  new_0 <- new_1 <- data
+  med <- vector(mode="list", length=length((which_block+1):(length(blocks)-1)))
+  brvars <- c(unlist(blocks[1:which_block]))
+  br_form <- reformulate(brvars, response=dv)
+  dv_type <- find_type(data[[dv]])
+  br_args <- list(formula = br_form, data=data)
+  if(dv_type %in% c("polr", "multinom")){
+    br_args$Hess <- TRUE
+  }
+  if(dv_type == "multinom"){
+    br_args$maxit <- 250
+  }
+  if(dv_type == "glm"){
+    br_args$family <- binomial
+  }
+  br_mod <- do.call(dv_type, br_args)
+
+
+  for(r in 1:R){
+  new_0 <- new_1 <- br_0 <- br_1 <- data
   if(is.null(vals)){
     delta <- ifelse(diffchange == "sd", sd(data[[varname]], na.rm=TRUE), 1)
-    new_0[[varname]] <- new_0[[varname]] - .5*delta
-    new_1[[varname]] <- new_1[[varname]] + .5*delta
+    new_0[[varname]] <- br_0[[varname]] <- new_0[[varname]] - .5*delta
+    new_1[[varname]] <- br_1[[varname]] <- new_1[[varname]] + .5*delta
   }else{
-    new_0[[varname]] <- vals[1]
-    new_1[[varname]] <- vals[2]
+    new_0[[varname]] <- br_0[[varname]] <-vals[1]
+    new_1[[varname]] <- br_1[[varname]] <-vals[2]
   }
+  md0 <- md1 <- data
+  k <- 1
   for(i in (which_block+1):(length(blocks)-1)){
     for(j in 1:length(blocks[[i]])){
-      new_0[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], new_0, incl_b_var = b_var)
-      new_1[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], new_1, incl_b_var = b_var)
+      new_0[[blocks[[i]][j]]] <- md0[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], new_0, incl_b_var = b_var)
+      new_1[[blocks[[i]][j]]] <- md1[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], new_1, incl_b_var = b_var)
     }
+    tmp0 <- draw_val(mods[[length(mods)]], md0, ret=lastMod, incl_b_var = b_var)
+    tmp1 <- draw_val(mods[[length(mods)]], md1, ret=lastMod, incl_b_var = b_var)
+    if(!is.matrix(tmp0))tmp0 <- matrix(tmp0, ncol=1)
+    if(!is.matrix(tmp1))tmp1 <- matrix(tmp1, ncol=1)
+    med[[k]] <- rbind(med[[k]], colMeans(tmp1-tmp0))
+    k <- k+1
   }
 
-  res0 <- draw_val(mods[[length(mods)]], new_0, ret="expected", incl_b_var = b_var)
-  res1 <- draw_val(mods[[length(mods)]], new_1, ret="expected", incl_b_var = b_var)
-  total_effect <- res0-res1
+  res0 <- draw_val(mods[[length(mods)]], new_0, ret=lastMod, incl_b_var = b_var)
+  res1 <- draw_val(mods[[length(mods)]], new_1, ret=lastMod, incl_b_var = b_var)
+  if(!is.matrix(res0))res0 <- matrix(res0, ncol=1)
+  if(!is.matrix(res1))res1 <- matrix(res1, ncol=1)
+  total_effect <- res1-res0
 
-  d0 <- draw_val(mods[[length(mods)]], data, ret="expected", incl_b_var = b_var)
-  d1 <- draw_val(mods[[length(mods)]], data, ret="expected", incl_b_var = b_var)
+  d0 <- draw_val(mods[[length(mods)]], br_0, ret=lastMod, incl_b_var = b_var)
+  d1 <- draw_val(mods[[length(mods)]], br_1, ret=lastMod, incl_b_var = b_var)
+  if(!is.matrix(d0))d0 <- matrix(d0, ncol=1)
+  if(!is.matrix(d1))d1 <- matrix(d1, ncol=1)
+
   direct_effect <- d1-d0
 
   indirect_effect <- total_effect - direct_effect
+
+  be0 <- draw_val(br_mod, br_0, ret=lastMod, incl_b_var = b_var)
+  be1 <- draw_val(br_mod, br_1, ret=lastMod, incl_b_var = b_var)
+  if(!is.matrix(be0))be0 <- matrix(be0, ncol=1)
+  if(!is.matrix(be1))be1 <- matrix(be1, ncol=1)
+
+  out_br <- rbind(out_br, colMeans(be1-be0))
 
   out_t <- rbind(out_t, colMeans(total_effect))
   out_d <- rbind(out_d, colMeans(direct_effect))
   out_i <- rbind(out_i, colMeans(indirect_effect))
   pb$tick()
   }
-  res <- list(total = out_t, direct= out_d, indirect=out_i)
+  res <- list(total = out_t, direct= out_d, indirect=out_i, br = out_br, mediated=med)
 }
 
