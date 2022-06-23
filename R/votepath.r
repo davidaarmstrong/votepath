@@ -305,7 +305,7 @@ sim_effect <- function(obj,
   pb$tick()
   }
 
-  cnms <- object$models[[length(object$models)]]$lev
+  cnms <- obj$models[[length(obj$models)]]$lev
   colnames(out_t) <- colnames(out_d) <- colnames(out_i) <- colnames(out_br) <- cnms
   med <- lapply(med, function(x){
     colnames(x) <- cnms
