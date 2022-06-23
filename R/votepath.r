@@ -304,6 +304,50 @@ sim_effect <- function(obj,
   out_i <- rbind(out_i, colMeans(indirect_effect))
   pb$tick()
   }
+
+  cnms <- object$models[[length(object$models)]]$lev
+  colnames(out_t) <- colnames(out_d) <- colnames(out_i) <- colnames(out_br) <- cnms
+  med <- lapply(med, function(x){
+    colnames(x) <- cnms
+    x
+  })
+
   res <- list(total = out_t, direct= out_d, indirect=out_i, br = out_br, mediated=med)
+  class(res) <- "simeff"
 }
+
+
+##' Summary method for VotePath Simulated Effects
+##'
+##' @description summary method for objects of class \code{simeff}
+##' @param object Object of class \code{simeff}
+##' @param ... Other arguments, currently unimplemented
+##' @param conf.level Level at which to make the confidence interval
+##'
+##' @importFrom tibble as_tibble
+##' @export
+##'
+##' @method summary simeff
+summary.simeff <- function(object, ..., conf.level=.95){
+  a1 <- (1-conf.level)/2
+  a2 <- 1-a1
+  total_sum = apply(object$total, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
+  total_sum <- as_tibble(t(total_sum), rownames="DV") %>% setNames(c("DV", "Mean", "Lower", "Upper"))
+
+  direct_sum = apply(object$direct, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
+  direct_sum <- as_tibble(t(direct_sum), rownames="DV") %>% setNames(c("DV", "Mean", "Lower", "Upper"))
+
+  indirect_sum = apply(object$indirect, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
+  indirect_sum <- as_tibble(t(indirect_sum), rownames="DV") %>% setNames(c("DV", "Mean", "Lower", "Upper"))
+
+  cat("Total Effects:\n")
+  print(total_sum)
+  cat("\nIndirect Effects:\n")
+  print(indirect_sum)
+  cat("\nDirect Effects:\n")
+  print(direct_sum)
+}
+
+
+
 
