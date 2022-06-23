@@ -314,6 +314,7 @@ sim_effect <- function(obj,
 
   res <- list(total = out_t, direct= out_d, indirect=out_i, br = out_br, mediated=med)
   class(res) <- "simeff"
+  return(res)
 }
 
 
