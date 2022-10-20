@@ -4,12 +4,75 @@ pGumbel <- function (q, mu = 0, sigma = 1){
 }
 
 
+#' Generate draws from the distribution of coefficients
+#' @param x model object whose coefficients are to be drawn
+#' @param ... Other arguments to be passed down 
+#' @param n number of draws to take
+#' @importFrom MASS mvrnorm
+#' 
+#' @export
+draw_coef <- function(x, ..., n=1000){
+  UseMethod("draw_coef")
+}
+
+#' @method draw_coef lm
+#' @export
+draw_coef.lm <- function(x, ..., n=1000){
+  args <- list(...)
+  if("var" %in% names(args)){
+    v <- args$var
+  }else{
+    v <- vcov(x)
+  }
+  B <- mvrnorm(n, coef(x), v)
+  list(B=array(t(B), dim=c(length(coef(x)), 1, n)))
+}
+
+#' @method draw_coef glm
+#' @export
+draw_coef.glm <- function(x, ..., n){
+  draw_coef.lm(x, ..., n)
+}
+
+#' @method draw_coef multinom
+#' @export
+draw_coef.multinom <- function(x, ..., n){
+  args <- list(...)
+  if("var" %in% names(args)){
+    v <- args$var
+  }else{
+    v <- vcov(x)
+  }
+  b <- c(t(coef(x)))
+  b0 <- matrix(0, ncol = ncol(coef(x)), nrow=n)
+  B <- mvrnorm(n, b, v)
+  B <- cbind(b0, B)
+  B <- lapply(1:nrow(B), \(i)matrix(B[i,], ncol=ncol(coef(x)), byrow=TRUE))
+  B_arr <- array(dim=c(nrow(coef(x))+1, ncol(coef(x)), n))
+  for(i in 1:length(B)){
+    B_arr[,,i] <- B[[i]]    
+  }  
+  list(B = B_arr)
+}
+
+#' @method draw_coef polr
+#' @export
+draw_coef.polr <- function(x, ..., n=1000){
+  b <- c(coef(x), x$zeta)
+  B <- mvrnorm(n, b, vcov(x))
+  Z <- B[,grep("\\|", colnames(B)), drop=FALSE]
+  B <- B[,-grep("\\|", colnames(B)), drop=FALSE]
+  
+  B <- array(c(t(B)), dim=c(ncol(B), 1, n))
+  Z <- array(c(t(Z)), dim=c(ncol(Z), 1, n))
+  list(B=B, Z=Z)
+}
+
+
 #' Take a random draw from a variable variable
 #' @param obj Model object of class `lm`, `glm`, `polr` or `multinom`
 #' @param data Data frame giving variables used to estimate model
-#' @param ret For return a draw from the variable or return the probabilities.
-#' @param incl_b_var Logical indicating whether the sampling variable of
-#' the coefficients should be incorporated into the simulation.
+#' @param n Array of coefficients to be used in the draw. 
 #' @param ... Other arguments to be passed down, currently not implemented.
 #'
 #' @importFrom MASS mvrnorm
@@ -17,82 +80,72 @@ pGumbel <- function (q, mu = 0, sigma = 1){
 #' @export
 draw_val <- function(obj,
                      data,
-                     ret=c("draw", "expected"),
-                     incl_b_var = TRUE,
                      ...){
-  ret <- match.arg(ret)
-  X <- model.matrix(formula(obj), data)
-  if(inherits(obj, "multinom")){
-    X <- model.matrix(obj, data)
-    b <- c(t(coef(obj)))
-    if(incl_b_var){
-      B <- mvrnorm(1, b, vcov(obj))
-      B <- cbind(0, matrix(B, ncol=(length(obj$lev)-1)))
-    }else{
-      B <- cbind(0, t(coef(obj)))
-    }
-    xb <- X %*% B
-    prob <- prop.table(exp(xb), 1)
-    tmp <- sapply(1:nrow(prob), function(i)rmultinom(1, 1, prob[i,])  )
-    out <- factor(apply(tmp, 2, which.max),
-                  levels=1:length(obj$lev),
-                  labels=obj$lev)
-
-  }
-  if(inherits(obj, "polr")){
-    cdf <- switch(obj$method,
-                  logistic = plogis,
-                  probit = pnorm,
-                  cloglog = pGumbel,
-                  cauchit = pcauchy)
-
-    X <- X[,-1, drop=FALSE]
-    b <- c(coef(obj), obj$zeta)
-    if(incl_b_var){
-      B <- mvrnorm(1, b, vcov(obj))
-      Z <- B[grep("\\|", names(B))]
-      B <- B[-grep("\\|", names(B))]
-    }else{
-      B <- coef(obj)
-      Z <- obj$zeta
-    }
-    xb <- X %*% B
-    Z <- c(-Inf, Z, Inf)
-    qs <- sapply(Z, function(z)cdf(z-xb))
-    prob <- sapply(2:ncol(qs), function(i)qs[,i] - qs[,(i-1)])
-    tmp <- sapply(1:nrow(prob), function(i)rmultinom(1, 1, prob[i,])  )
-    out <- factor(apply(tmp, 2, which.max),
-                  levels=1:length(obj$lev),
-                  labels=obj$lev)
-  }
-  if(inherits(obj, "glm")){
-    if(family(obj)$family == "binomial"){
-      if(incl_b_var){
-        b <- mvrnorm(1, coef(obj),vcov(obj))
-      }else{
-        b <- coef(obj)
-      }
-      prob <- family(obj)$linkinv(X %*% b)
-      out <- rbinom(length(prob), 1, prob)
-    }else{
-      stop(paste0("GLM family ", family(obj)$family, " not currently supported.\n"))
-    }
-  }
-  if(inherits(obj, "lm") & !inherits(obj, "glm")){
-    if(incl_b_var){
-      b <- mvrnorm(1, coef(obj),vcov(obj))
-    }else{
-      b <- coef(obj)
-    }
-    prob <- X %*% b
-    out <- rnorm(nrow(X), prob, summary(obj)$sigma)
-  }
-  if(ret == "draw"){
-    out
-  }else{
-    prob
-  }
+  UseMethod("draw_val")
 }
+
+#' @method draw_val lm
+#' @export
+draw_val.lm <- function(obj, 
+                        data, 
+                        ...){
+  X <- model.matrix(formula(obj), data)
+  xb <- X %*% coef(obj)
+  s2e <- sum(obj$residuals^2)/obj$df.residual
+  rnorm(length(xb), xb, sqrt(s2e))
+}
+
+#' @method draw_val glm
+#' @export
+draw_val.glm <- function(obj, 
+                         data, 
+                         ...){
+  X <- model.matrix(formula(obj), data)
+  xb <- X %*% coef(obj)
+  ev <- obj$family$linkinv(xb)
+  if(obj$family$family == "binomial"){
+    rfun <- function(n,x)rbinom(n,1,x)
+  }
+  if(obj$family$family == "poisson"){
+    rfun <- function(n,x)rpois(n, x)
+  }
+  if(!obj$family$family %in% c("binomial", "poisson"))stop("Currently only binomial and poisson families are implemented.\n")
+  rfun(length(ev), ev)
+}
+
+#' @method draw_val multinom
+#' @export
+draw_val.multinom <- function(obj, 
+                              data, 
+                              ...){
+  X <- model.matrix(obj, data)
+  b <- coef(obj)
+  b <- rbind(0, b)
+  xb <- X %*% t(b)
+  ev <- exp(xb)
+  ev <- prop.table(ev, 1)
+  draws <- t(apply(ev, 1, \(x)rmultinom(1, 1, x)))
+  draws <- apply(draws, 1, which.max)
+  factor(draws, levels=1:length(obj$lev), labels=obj$lev)
+}
+                              
+#' @method draw_val polr
+#' @export
+draw_val.polr <- function(obj, 
+                              data, 
+                              ...){
+  cdf <- switch(obj$method, logistic = plogis, probit = pnorm)
+  X <- model.matrix(obj, data)[,-1, drop=FALSE]
+  b <- coef(obj)
+  xb <- X %*% b
+  z <- c(-Inf, obj$zeta, Inf)
+  qval <- sapply(z, \(tau)cdf(tau - xb))
+  ev <- sapply(2:ncol(qval), function(i)qval[,i] - qval[,(i-1)])
+  draws <- t(apply(ev, 1, \(x)rmultinom(1, 1, x)))
+  draws <- apply(draws, 1, which.max)
+  factor(draws, levels=1:length(obj$lev), labels=obj$lev)
+}
+
 
 #' Find type of variable
 #'
@@ -266,25 +319,25 @@ sim_effect <- function(obj,
   k <- 1
   for(i in (which_block+1):(length(blocks)-1)){
     for(j in 1:length(blocks[[i]])){
-      new_0[[blocks[[i]][j]]] <- md0[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], new_0, incl_b_var = b_var)
-      new_1[[blocks[[i]][j]]] <- md1[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], new_1, incl_b_var = b_var)
+      new_0[[blocks[[i]][j]]] <- md0[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], new_0)
+      new_1[[blocks[[i]][j]]] <- md1[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], new_1)
     }
-    tmp0 <- draw_val(mods[[length(mods)]], md0, ret=lastMod, incl_b_var = b_var)
-    tmp1 <- draw_val(mods[[length(mods)]], md1, ret=lastMod, incl_b_var = b_var)
+    tmp0 <- draw_val(mods[[length(mods)]], md0)
+    tmp1 <- draw_val(mods[[length(mods)]], md1)
     if(!is.matrix(tmp0))tmp0 <- matrix(tmp0, ncol=1)
     if(!is.matrix(tmp1))tmp1 <- matrix(tmp1, ncol=1)
     med[[k]] <- rbind(med[[k]], colMeans(tmp1-tmp0))
     k <- k+1
   }
 
-  res0 <- draw_val(mods[[length(mods)]], new_0, ret=lastMod, incl_b_var = b_var)
-  res1 <- draw_val(mods[[length(mods)]], new_1, ret=lastMod, incl_b_var = b_var)
+  res0 <- draw_val(mods[[length(mods)]], new_0)
+  res1 <- draw_val(mods[[length(mods)]], new_1)
   if(!is.matrix(res0))res0 <- matrix(res0, ncol=1)
   if(!is.matrix(res1))res1 <- matrix(res1, ncol=1)
   total_effect <- res1-res0
 
-  d0 <- draw_val(mods[[length(mods)]], br_0, ret=lastMod, incl_b_var = b_var)
-  d1 <- draw_val(mods[[length(mods)]], br_1, ret=lastMod, incl_b_var = b_var)
+  d0 <- draw_val(mods[[length(mods)]], br_0)
+  d1 <- draw_val(mods[[length(mods)]], br_1)
   if(!is.matrix(d0))d0 <- matrix(d0, ncol=1)
   if(!is.matrix(d1))d1 <- matrix(d1, ncol=1)
 
@@ -292,8 +345,8 @@ sim_effect <- function(obj,
 
   indirect_effect <- total_effect - direct_effect
 
-  be0 <- draw_val(br_mod, br_0, ret=lastMod, incl_b_var = b_var)
-  be1 <- draw_val(br_mod, br_1, ret=lastMod, incl_b_var = b_var)
+  be0 <- draw_val(br_mod, br_0)
+  be1 <- draw_val(br_mod, br_1)
   if(!is.matrix(be0))be0 <- matrix(be0, ncol=1)
   if(!is.matrix(be1))be1 <- matrix(be1, ncol=1)
 

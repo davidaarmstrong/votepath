@@ -4,19 +4,16 @@
 \alias{draw_val}
 \title{Take a random draw from a variable variable}
 \usage{
-draw_val(obj, data, ret = c("draw", "expected"), incl_b_var = TRUE, ...)
+draw_val(obj, data, ...)
 }
 \arguments{
 \item{obj}{Model object of class \code{lm}, \code{glm}, \code{polr} or \code{multinom}}
 
 \item{data}{Data frame giving variables used to estimate model}
 
-\item{ret}{For return a draw from the variable or return the probabilities.}
-
-\item{incl_b_var}{Logical indicating whether the sampling variable of
-the coefficients should be incorporated into the simulation.}
-
 \item{...}{Other arguments to be passed down, currently not implemented.}
+
+\item{n}{Array of coefficients to be used in the draw.}
 }
 \description{
 Take a random draw from a variable variable
