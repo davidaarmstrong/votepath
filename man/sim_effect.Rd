@@ -12,6 +12,7 @@ sim_effect(
   vals = NULL,
   b_var = TRUE,
   R = 100,
+  lastMod = c("expected", "draw"),
   ...
 )
 }
@@ -33,6 +34,8 @@ changed is a factor, the \code{vals} vector also has to be a factor with the sam
 \item{b_var}{Logical indicating whether sampling variability on the coefficients should be incorporated in the simulation.}
 
 \item{R}{Number of simulations to be conducted.}
+
+\item{lastMod}{Should the prediction from the last model be a draw or a the expected value?}
 
 \item{...}{Other arguments to be passed down.}
 }
