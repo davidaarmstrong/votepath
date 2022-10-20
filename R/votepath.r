@@ -23,6 +23,7 @@ draw_val <- function(obj,
   ret <- match.arg(ret)
   X <- model.matrix(formula(obj), data)
   if(inherits(obj, "multinom")){
+    X <- model.matrix(obj, data)
     b <- c(t(coef(obj)))
     if(incl_b_var){
       B <- mvrnorm(1, b, vcov(obj))
@@ -45,7 +46,7 @@ draw_val <- function(obj,
                   cloglog = pGumbel,
                   cauchit = pcauchy)
 
-    X <- X[,-1]
+    X <- X[,-1, drop=FALSE]
     b <- c(coef(obj), obj$zeta)
     if(incl_b_var){
       B <- mvrnorm(1, b, vcov(obj))
@@ -250,7 +251,6 @@ sim_effect <- function(obj,
     br_args$family <- binomial
   }
   br_mod <- do.call(dv_type, br_args)
-
 
   for(r in 1:R){
   new_0 <- new_1 <- br_0 <- br_1 <- data
