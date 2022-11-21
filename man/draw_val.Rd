@@ -4,16 +4,14 @@
 \alias{draw_val}
 \title{Take a random draw from a variable variable}
 \usage{
-draw_val(obj, data, ...)
+draw_val(obj, probs, ...)
 }
 \arguments{
 \item{obj}{Model object of class \code{lm}, \code{glm}, \code{polr} or \code{multinom}}
 
-\item{data}{Data frame giving variables used to estimate model}
+\item{probs}{A list that was produced by the \code{prob()} function.}
 
 \item{...}{Other arguments to be passed down, currently not implemented.}
-
-\item{n}{Array of coefficients to be used in the draw.}
 }
 \description{
 Take a random draw from a variable variable
