@@ -210,44 +210,61 @@ draw_val.lm <- function(obj,
 draw_val.glm <- function(obj, 
                          probs, 
                          ...){
+  if(!obj$family$family %in% c("binomial", "gaussian"))stop("Currently only gaussian and binomial GLMs are implemented.\n")
   if(family(obj)$family == "gaussian"){
     sigma <- summary(mod2g)$dispersion
     lapply(probs, function(p)rnorm(length(p), p, sigma))
   }else{
     lapply(probs, function(p)rbinom(length(p), 1, p))
   }
-  if(!obj$family$family %in% c("binomial"))stop("Currently only binomial GLMs are implemented.\n")
-  rfun(length(ev), ev)
 }
 
 #'@method draw_val svyglm
 #'@export
 draw_val.svyglm <- function(obj, probs, ...){
-  
+  if(!obj$family$family %in% c("binomial", "gaussian"))stop("Currently only gaussian and binomial GLMs are implemented.\n")
+  if(obj$family$family == "gaussian"){
+    sigma <- c(summary(mod2g)$dispersion)
+    lapply(probs, function(p)rnorm(length(p), p, sigma))
+  }else{
+    lapply(probs, function(p)rbinom(length(p), 1, p))
+  }
 }
 
 #'@method draw_val polr
 #'@export
 draw_val.polr <- function(obj, probs, ...){
-  
+ lapply(probs, function(x){
+   fac <- apply(x, 1, function(z)which.max(rmultinom(1, 1, z)))
+   fac <- factor(fac, levels=1:length(obj$lev), labels=obj$lev)
+   fac
+   }) 
 }
 
 #'@method draw_val svyolr
 #'@export
 draw_val.svyolr <- function(obj, probs, ...){
-  
+  draw_val.polr(obj, probs, ...)  
 }
 
 #'@method draw_val multinom
 #'@export
 draw_val.multinom <- function(obj, probs, ...){
-  
+  lapply(probs, function(x){
+    fac <- apply(x, 1, function(z)which.max(rmultinom(1, 1, z)))
+    fac <- factor(fac, levels=1:length(obj$lev), labels=obj$lev)
+    fac
+  }) 
 }
 
 #'@method draw_val svrepstatmisc
 #'@export
 draw_val.svrepstatmisc <- function(obj, probs, ...){
-  
+  lapply(probs, function(x){
+    fac <- apply(x, 1, function(z)which.max(rmultinom(1, 1, z)))
+    fac <- factor(fac, levels=1:length(attr(obj, "lev")), labels=attr(obj, "lev"))
+    fac
+  }) 
 }
 
 
@@ -360,6 +377,7 @@ vote_path <- function(blocks,
       mlist[[j]] <- do.call(types[blocks[[i]][j]], arglist)
       if(types[blocks[[i]][j]] == "svymultinom"){
         attr(mlist[[j]], "formula") <- arglist$formula
+        attr(mlist[[j]], "lev") <- levels(data$variables[[blocks[[i]][j]]])
       }
       }
     res[[(i-1)]] <- mlist
@@ -395,6 +413,10 @@ vote_path <- function(blocks,
     arglist$family <- binomial
   }
   res[[(length(blocks)-1)]] <- do.call(types[dv], arglist)
+  if(types[dv] == "svymultinom"){
+    attr(res[[(length(blocks)-1)]], "formula") <- fullform
+    attr(res[[(length(blocks)-1)]], "lev") <- levels(data$variables[[dv]])
+  }
   out <- list(models = res, blocks = blocks)
   class(out) <- "votepath"
   out
