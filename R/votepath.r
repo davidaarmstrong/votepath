@@ -220,6 +220,35 @@ draw_val.glm <- function(obj,
   rfun(length(ev), ev)
 }
 
+#'@method draw_val svyglm
+#'@export
+draw_val.svyglm <- function(obj, probs, ...){
+  
+}
+
+#'@method draw_val polr
+#'@export
+draw_val.polr <- function(obj, probs, ...){
+  
+}
+
+#'@method draw_val svyolr
+#'@export
+draw_val.svyolr <- function(obj, probs, ...){
+  
+}
+
+#'@method draw_val multinom
+#'@export
+draw_val.multinom <- function(obj, probs, ...){
+  
+}
+
+#'@method draw_val svrepstatmisc
+#'@export
+draw_val.svrepstatmisc <- function(obj, probs, ...){
+  
+}
 
 
 #' Find type of variable
