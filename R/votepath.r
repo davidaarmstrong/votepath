@@ -20,6 +20,7 @@ draw_coefs <- function(obj, R=100, ...){
 #' @export
 draw_coefs.lm <- function(obj, R, ...){
   out <- MASS::mvrnorm(R, coef(obj), vcov(obj))
+  if(R == 1)out <- matrix(out, nrow=1)
   lapply(1:nrow(out), function(x)out[x, , drop=FALSE])
 }
 
@@ -27,6 +28,7 @@ draw_coefs.lm <- function(obj, R, ...){
 #' @export
 draw_coefs.glm <- function(obj, R, ...){
   out <- MASS::mvrnorm(R, coef(obj), vcov(obj))
+  if(R == 1)out <- matrix(out, nrow=1)
   lapply(1:nrow(out), function(x)out[x, , drop=FALSE])
 }
 
@@ -34,6 +36,7 @@ draw_coefs.glm <- function(obj, R, ...){
 #' @export
 draw_coefs.svyglm <- function(obj, R, ...){
   out <- MASS::mvrnorm(R, coef(obj), vcov(obj))
+  if(R == 1)out <- matrix(out, nrow=1)
   lapply(1:nrow(out), function(x)out[x, , drop=FALSE])
 }
 
@@ -48,6 +51,7 @@ draw_coefs.multinom <- function(obj, R, ...){
   b <- rbind(0, b)
   b <- c(t(b))
   out <- MASS::mvrnorm(R, b, v)
+  if(R == 1)out <- matrix(out, nrow=1)
   lapply(1:nrow(out), function(x)matrix(out[x,], ncol=ncb, byrow=TRUE))
 }
 
@@ -59,6 +63,7 @@ draw_coefs.polr <- function(obj, R, ...){
   b <- c(-coef(obj), obj$zeta)
   v <- vcov(obj)
   out <- MASS::mvrnorm(R, b, v)
+  if(R == 1)out <- matrix(out, nrow=1)
   lapply(1:nrow(out), function(x){
     mat <- matrix(rep(out[x, 1:nb], nz), ncol=nz, nrow=nb)
     mat <- rbind(c(-Inf, out[x,(nb+1):ncol(out)], Inf), mat)
@@ -76,6 +81,7 @@ draw_coefs.svyolr <- function(obj, R, ...){
   nz <- length(zetas) + 2
   v <- vcov(obj)
   out <- MASS::mvrnorm(R, b, v)
+  if(R == 1)out <- matrix(out, nrow=1)
   lapply(1:nrow(out), function(x){
     mat <- matrix(rep(out[x, 1:nb], nz), ncol=nz, nrow=nb)
     mat <- rbind(c(-Inf, out[x,(nb+1):ncol(out)], Inf), mat)
@@ -93,6 +99,7 @@ draw_coefs.svrepstatmisc <- function(obj, R, ...){
   v <- rbind(matrix(0, nrow=ncb, ncol = ncol(v)), v)
   b <- c(rep(0, ncb), b)
   out <- MASS::mvrnorm(R, b, v)
+  if(R == 1)out <- matrix(out, nrow=1)
   lapply(1:nrow(out), function(x)matrix(out[x,], ncol=ncb, byrow=TRUE))
 }
 
@@ -184,6 +191,7 @@ prob.svrepstatmisc <- function(obj, b, data){
 #' Take a random draw from a variable variable
 #' @param obj Model object of class `lm`, `glm`, `polr` or `multinom`
 #' @param probs A list that was produced by the `prob()` function.  
+#' @param e matrix or vector of errors to add to the predicted values to generate the draw in an `lm` or gaussian `glm`.
 #' @param ... Other arguments to be passed down, currently not implemented.
 #'
 #' @importFrom MASS mvrnorm
@@ -196,24 +204,35 @@ draw_val <- function(obj,
 }
 
 #' @method draw_val lm
-#' @importFrom mvnfast rmvn
 #' @export
 draw_val.lm <- function(obj, 
                         probs,
+                        e = NULL, 
                         ...){
-  sigma <- summary(obj)$sigma
-  lapply(probs, function(p)rnorm(length(p), p, sigma))
+  if(is.null(e)){
+    sigma <- summary(obj)$sigma
+    lapply(probs, function(p)rnorm(length(p), p, sigma))
+  }else{
+    if(!is.matrix(e))e <- matrix(e, ncol=1)
+    lapply(seq_along(probs), function(i)probs[[i]] + e[,i])
+  }
 }
 
 #' @method draw_val glm
 #' @export
 draw_val.glm <- function(obj, 
                          probs, 
+                         e=NULL,
                          ...){
   if(!obj$family$family %in% c("binomial", "gaussian"))stop("Currently only gaussian and binomial GLMs are implemented.\n")
   if(family(obj)$family == "gaussian"){
-    sigma <- summary(mod2g)$dispersion
-    lapply(probs, function(p)rnorm(length(p), p, sigma))
+    if(is.null(e)){
+      sigma <- summary(mod2g)$dispersion
+      lapply(probs, function(p)rnorm(length(p), p, sigma))
+    }else{
+      if(!is.matrix(e))e <- matrix(e, ncol=1)
+      lapply(seq_along(probs), function(i)probs[[i]] + e[,i])
+    }
   }else{
     lapply(probs, function(p)rbinom(length(p), 1, p))
   }
@@ -221,11 +240,19 @@ draw_val.glm <- function(obj,
 
 #'@method draw_val svyglm
 #'@export
-draw_val.svyglm <- function(obj, probs, ...){
+draw_val.svyglm <- function(obj, 
+                            probs, 
+                            e=NULL,
+                            ...){
   if(!obj$family$family %in% c("binomial", "gaussian"))stop("Currently only gaussian and binomial GLMs are implemented.\n")
   if(obj$family$family == "gaussian"){
-    sigma <- c(summary(mod2g)$dispersion)
-    lapply(probs, function(p)rnorm(length(p), p, sigma))
+    if(is.null(e)){
+      sigma <- c(summary(mod2g)$dispersion)
+      lapply(probs, function(p)rnorm(length(p), p, sigma))
+    }else{
+      if(!is.matrix(e))e <- matrix(e, ncol=1)
+      lapply(seq_along(probs), function(i)probs[[i]] + e[,i])
+    }
   }else{
     lapply(probs, function(p)rbinom(length(p), 1, p))
   }

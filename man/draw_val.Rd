@@ -12,6 +12,8 @@ draw_val(obj, probs, ...)
 \item{probs}{A list that was produced by the \code{prob()} function.}
 
 \item{...}{Other arguments to be passed down, currently not implemented.}
+
+\item{e}{matrix or vector of errors to add to the predicted values to generate the draw in an \code{lm} or gaussian \code{glm}.}
 }
 \description{
 Take a random draw from a variable variable
