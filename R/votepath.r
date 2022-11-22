@@ -1,4 +1,4 @@
-## TODO: Calculate indirect effect as change in z-variable from x, but retain the original values of x in the final model. 
+## TODO: Currently, Indirect = Total-Direct;  Should also code an option for Direct = Total - Indirect
 
 pGumbel <- function (q, mu = 0, sigma = 1){
   stopifnot(sigma > 0)
@@ -489,7 +489,7 @@ sim_effect <- function(obj,
     b_direct <- draw_coefs(mods[[length(mods)]], R=1)
     p0_direct <- prob(mods[[length(mods)]], b_direct, new_0)
     p1_direct <- prob(mods[[length(mods)]], b_direct, new_1)
-    if(inherits(mods[[length(mods)]], "lm")){
+    if(inherits(mods[[length(mods)]], "lm") & !inherits(mods[[length(mods)]], "glm")){
       e_final <- rnorm(nrow(new_0), 0, summary(mods[[length(mods)]])$sigma)
     }else{
       e_final <- NULL
@@ -510,7 +510,7 @@ sim_effect <- function(obj,
       tab1 <- table(d1_direct)/sum(table(d1_direct))
     }
     if(is.matrix(d0_direct)){
-      de <- rbind(de, colMeans(d0_direct-d1_direct))
+      de <- rbind(de, colMeans(d1_direct-d0_direct))
     }else{
       de <- rbind(de, tab1-tab0)
     }
@@ -519,7 +519,7 @@ sim_effect <- function(obj,
         b <- draw_coefs(mods[[(i-1)]][[j]], R=1)
         p0 <- prob(mods[[(i-1)]][[j]], b, new_0)
         p1 <- prob(mods[[(i-1)]][[j]], b, new_1)
-        if(inherits(mods[[(i-1)]][[j]], "lm")){
+        if(inherits(mods[[(i-1)]][[j]], "lm") & !inherits(mods[[(i-1)]][[j]], "glm")){
           e <- rnorm(nrow(new_0), 0, summary(mods[[(i-1)]][[j]])$sigma)
         }else{
           e <- NULL
@@ -548,7 +548,7 @@ sim_effect <- function(obj,
       tab1 <- table(tmp1)/sum(table(tmp1))
     }
     if(is.matrix(tmp0)){
-      te <- rbind(te, colMeans(tmp0-tmp1))
+      te <- rbind(te, colMeans(tmp1-tmp0))
     }else{
       te <- rbind(te, tab1-tab0)
     }
@@ -557,8 +557,9 @@ sim_effect <- function(obj,
   ie <- te-de
   if("lev" %in% names(obj$models[[length(obj$models)]])){
     cnms <- obj$models[[length(obj$models)]]$lev
+    colnames(de) <- colnames(te) <- colnames(ie) <- cnms
+    
   }
-  colnames(de) <- colnames(te) <- colnames(ie) <- cnms
   # med <- lapply(med, function(x){
   #   colnames(x) <- cnms
   #   x
@@ -595,13 +596,19 @@ summary.simeff <- function(object, ..., conf.level=.95){
   indirect_sum = apply(object$indirect, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
   rownames(indirect_sum) <- c("Mean", "Lower", "Upper")
   indirect_sum <- as_tibble(t(indirect_sum), rownames="DV")
-
-  cat("Total Effects:\n")
-  print(total_sum)
-  cat("\nDirect Effects:\n")
-  print(direct_sum)
-  cat("\nIndirect Effects:\n")
-  print(indirect_sum)
+  if(nrow(total_sum) > 1){
+    cat("Total Effects:\n")
+    print(total_sum)
+    cat("\nDirect Effects:\n")
+    print(direct_sum)
+    cat("\nIndirect Effects:\n")
+    print(indirect_sum)
+  }else{
+    bind_rows(
+      total_sum %>% mutate(DV = "Total Effect"), 
+      direct_sum %>% mutate(DV = "Direct"), 
+      indirect_sum %>% mutate(DV = "Indirect"))
+  }
 }
 
 
