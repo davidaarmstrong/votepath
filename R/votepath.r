@@ -9,7 +9,6 @@ pGumbel <- function (q, mu = 0, sigma = 1){
 #' 
 #' Draw coefficients from their posterior distributions implied by the model.  
 #' @param obj A model object - currently supported models are `lm`, `glm`, `polr`, `multinom`, `svyglm`, `svyolr` and `svymultinom`. 
-#' @param R Number of draws to take from the distribution.  
 #' 
 #' @export
 draw_coefs <- function(obj, R=100, ...){
@@ -18,31 +17,31 @@ draw_coefs <- function(obj, R=100, ...){
 
 #' @method draw_coefs lm
 #' @export
-draw_coefs.lm <- function(obj, R, ...){
-  out <- MASS::mvrnorm(R, coef(obj), vcov(obj))
-  if(R == 1)out <- matrix(out, nrow=1)
-  lapply(1:nrow(out), function(x)out[x, , drop=FALSE])
+draw_coefs.lm <- function(obj, ...){
+  out <- MASS::mvrnorm(1, coef(obj), vcov(obj))
+  out <- matrix(out, nrow=1)
+  out
 }
 
 #' @method draw_coefs glm
 #' @export
-draw_coefs.glm <- function(obj, R, ...){
-  out <- MASS::mvrnorm(R, coef(obj), vcov(obj))
-  if(R == 1)out <- matrix(out, nrow=1)
-  lapply(1:nrow(out), function(x)out[x, , drop=FALSE])
+draw_coefs.glm <- function(obj, ...){
+  out <- MASS::mvrnorm(1, coef(obj), vcov(obj))
+  out <- matrix(out, nrow=1)
+  out
 }
 
 #' @method draw_coefs svyglm
 #' @export
-draw_coefs.svyglm <- function(obj, R, ...){
-  out <- MASS::mvrnorm(R, coef(obj), vcov(obj))
-  if(R == 1)out <- matrix(out, nrow=1)
-  lapply(1:nrow(out), function(x)out[x, , drop=FALSE])
+draw_coefs.svyglm <- function(obj, ...){
+  out <- MASS::mvrnorm(1, coef(obj), vcov(obj))
+  out <- matrix(out, nrow=1)
+  out
 }
 
 #' @method draw_coefs multinom
 #' @export
-draw_coefs.multinom <- function(obj, R, ...){
+draw_coefs.multinom <- function(obj, ...){
   b <- coef(obj)
   ncb <- ncol(b)
   v <- vcov(obj)
@@ -50,48 +49,44 @@ draw_coefs.multinom <- function(obj, R, ...){
   v <- rbind(matrix(0, nrow=ncol(b), ncol = ncol(v)), v)
   b <- rbind(0, b)
   b <- c(t(b))
-  out <- MASS::mvrnorm(R, b, v)
-  if(R == 1)out <- matrix(out, nrow=1)
-  lapply(1:nrow(out), function(x)matrix(out[x,], ncol=ncb, byrow=TRUE))
+  out <- MASS::mvrnorm(1, b, v)
+  out <- matrix(out, nrow=1)
+  matrix(out[1,], ncol=ncb, byrow=TRUE)
 }
 
 #' @method draw_coefs polr
 #' @export
-draw_coefs.polr <- function(obj, R, ...){
+draw_coefs.polr <- function(obj, ...){
   nb <- length(coef(obj))
   nz <- length(obj$zeta) + 2
   b <- c(-coef(obj), obj$zeta)
   v <- vcov(obj)
-  out <- MASS::mvrnorm(R, b, v)
-  if(R == 1)out <- matrix(out, nrow=1)
-  lapply(1:nrow(out), function(x){
-    mat <- matrix(rep(out[x, 1:nb], nz), ncol=nz, nrow=nb)
-    mat <- rbind(c(-Inf, out[x,(nb+1):ncol(out)], Inf), mat)
-    t(mat)
-  })
+  out <- MASS::mvrnorm(1, b, v)
+  out <- matrix(out, nrow=1)
+  mat <- matrix(rep(out[1, 1:nb], nz), ncol=nz, nrow=nb)
+  mat <- rbind(c(-Inf, out[1,(nb+1):ncol(out)], Inf), mat)
+  t(mat)
 }
 
 #' @method draw_coefs svyolr
 #' @export
-draw_coefs.svyolr <- function(obj, R, ...){
+draw_coefs.svyolr <- function(obj, ...){
   b <- coef(obj)
   zetas <- which(grepl("\\|", names(b)))
   betas <- setdiff(1:length(b), zetas)
   nb <- length(betas)
   nz <- length(zetas) + 2
   v <- vcov(obj)
-  out <- MASS::mvrnorm(R, b, v)
-  if(R == 1)out <- matrix(out, nrow=1)
-  lapply(1:nrow(out), function(x){
-    mat <- matrix(rep(out[x, 1:nb], nz), ncol=nz, nrow=nb)
-    mat <- rbind(c(-Inf, out[x,(nb+1):ncol(out)], Inf), mat)
-    t(mat)
-  })
+  out <- MASS::mvrnorm(1, b, v)
+  out <- matrix(out, nrow=1)
+  mat <- matrix(rep(out[1, 1:nb], nz), ncol=nz, nrow=nb)
+  mat <- rbind(c(-Inf, out[1,(nb+1):ncol(out)], Inf), mat)
+  t(mat)
 }
 
 #' @method draw_coefs svrepstatmisc
 #' @export
-draw_coefs.svrepstatmisc <- function(obj, R, ...){
+draw_coefs.svrepstatmisc <- function(obj, ...){
   b <- coef(obj)
   ncb <- length(b)/length(grep("\\(Intercept\\)", names(b)))
   v <- vcov(obj)
@@ -99,8 +94,8 @@ draw_coefs.svrepstatmisc <- function(obj, R, ...){
   v <- rbind(matrix(0, nrow=ncb, ncol = ncol(v)), v)
   b <- c(rep(0, ncb), b)
   out <- MASS::mvrnorm(R, b, v)
-  if(R == 1)out <- matrix(out, nrow=1)
-  lapply(1:nrow(out), function(x)matrix(out[x,], ncol=ncb, byrow=TRUE))
+  out <- matrix(out, nrow=1)
+  matrix(out[1,], ncol=ncb, byrow=TRUE)
 }
 
 #' Set-up for Drawing Values
@@ -123,14 +118,13 @@ prob <- function(obj, b, data, ...){
 prob.polr <- function(obj, b, data){
   pfun <- switch(obj$method, logistic = plogis, probit = pnorm)
   X <- model.matrix(obj, data=data)
-  q <- lapply(b, function(B)pfun(X %*% t(B)))
-  D <- matrix(0, ncol = ncol(q[[1]])-1, nrow=ncol(q[[1]]))
+  q <- pfun(X %*% t(b))
+  D <- matrix(0, ncol = ncol(q)-1, nrow=ncol(q))
   for(j in 1:ncol(D)){
     D[j,j] <- -1
     D[(j+1),j] <- 1
   }
-  p <- lapply(q, function(m)m %*% D)
-  p
+  q %*% D
 }
 
 #' @method prob svyolr
@@ -138,53 +132,50 @@ prob.polr <- function(obj, b, data){
 prob.svyolr <- function(obj, b, data){
   pfun <- switch(obj$method, logistic = plogis, probit = pnorm)
   X <- model.matrix(formula(obj), data=data$variables)
-  q <- lapply(b, function(B)pfun(X %*% t(B)))
-  D <- matrix(0, ncol = ncol(q[[1]])-1, nrow=ncol(q[[1]]))
+  q <- pfun(X %*% t(b))
+  D <- matrix(0, ncol = ncol(q)-1, nrow=ncol(q))
   for(j in 1:ncol(D)){
     D[j,j] <- -1
     D[(j+1),j] <- 1
   }
-  p <- lapply(q, function(m)m %*% D)
-  p
+  q %*% D
 }
 
 #' @method prob lm
 #' @export
 prob.lm <- function(obj, b, data){
   X <- model.matrix(obj, data=data)
-  lapply(b, function(B)X %*% t(B))
+  X %*% t(b)
 }
 
 #' @method prob glm
 #' @export
 prob.glm <- function(obj, b, data){
   X <- model.matrix(obj, data=data)
-  lapply(b, function(B)obj$family$linkinv(X %*% t(B)))
+  obj$family$linkinv(X %*% t(b))
 }
 
 #' @method prob svyglm
 #' @export
 prob.svyglm <- function(obj, b, data){
   X <- model.matrix(obj, data=data$variables)
-  lapply(b, function(B)obj$family$linkinv(X %*% t(B)))
+  obj$family$linkinv(X %*% t(b))
 }
 
 #' @method prob multinom
 #' @export
 prob.multinom <- function(obj, b, data){
   X <- model.matrix(formula(obj), data=data) 
-  q <- lapply(b, function(B)exp(X %*% t(B)))
-  p <- lapply(q, prop.table, 1)
-  p
+  q <- exp(X %*% t(b))
+  prop.table(q, 1)
 }
 
 #' @method prob svrepstatmisc
 #' @export
 prob.svrepstatmisc <- function(obj, b, data){
   X <- model.matrix(attr(obj, "formula"), data=data$variables) 
-  q <- lapply(b, function(B)exp(X %*% t(B)))
-  p <- lapply(q, prop.table, 1)
-  p
+  q <- exp(X %*% t(b))
+  prop.table(q, 1)
 }
 
 ## TODO: finish draw_val for polr, svyolr, multinom, svymultinom and svyglm
@@ -211,10 +202,9 @@ draw_val.lm <- function(obj,
                         ...){
   if(is.null(e)){
     sigma <- summary(obj)$sigma
-    lapply(probs, function(p)rnorm(length(p), p, sigma))
+    rnorm(length(probs), probs, sigma)
   }else{
-    if(!is.matrix(e))e <- matrix(e, ncol=1)
-    lapply(seq_along(probs), function(i)probs[[i]] + e[,i])
+    probs + e    
   }
 }
 
@@ -227,14 +217,13 @@ draw_val.glm <- function(obj,
   if(!obj$family$family %in% c("binomial", "gaussian"))stop("Currently only gaussian and binomial GLMs are implemented.\n")
   if(family(obj)$family == "gaussian"){
     if(is.null(e)){
-      sigma <- summary(mod2g)$dispersion
-      lapply(probs, function(p)rnorm(length(p), p, sigma))
+      sigma <- summary(obj)$dispersion
+      rnorm(length(probs), probs, sigma)
     }else{
-      if(!is.matrix(e))e <- matrix(e, ncol=1)
-      lapply(seq_along(probs), function(i)probs[[i]] + e[,i])
+      probs + e
     }
   }else{
-    lapply(probs, function(p)rbinom(length(p), 1, p))
+    rbinom(length(probs), 1, probs)
   }
 }
 
@@ -247,25 +236,22 @@ draw_val.svyglm <- function(obj,
   if(!obj$family$family %in% c("binomial", "gaussian"))stop("Currently only gaussian and binomial GLMs are implemented.\n")
   if(obj$family$family == "gaussian"){
     if(is.null(e)){
-      sigma <- c(summary(mod2g)$dispersion)
-      lapply(probs, function(p)rnorm(length(p), p, sigma))
+      sigma <- c(summary(obj)$dispersion)
+      rnorm(length(probs), probs, sigma)
     }else{
-      if(!is.matrix(e))e <- matrix(e, ncol=1)
-      lapply(seq_along(probs), function(i)probs[[i]] + e[,i])
+      probs + e
     }
   }else{
-    lapply(probs, function(p)rbinom(length(p), 1, p))
+    rbinom(length(probs), 1, probs)
   }
 }
 
 #'@method draw_val polr
 #'@export
 draw_val.polr <- function(obj, probs, ...){
- lapply(probs, function(x){
-   fac <- apply(x, 1, function(z)which.max(rmultinom(1, 1, z)))
+   fac <- apply(probs, 1, function(z)which.max(rmultinom(1, 1, z)))
    fac <- factor(fac, levels=1:length(obj$lev), labels=obj$lev)
-   fac
-   }) 
+   unname(fac)
 }
 
 #'@method draw_val svyolr
@@ -277,21 +263,17 @@ draw_val.svyolr <- function(obj, probs, ...){
 #'@method draw_val multinom
 #'@export
 draw_val.multinom <- function(obj, probs, ...){
-  lapply(probs, function(x){
-    fac <- apply(x, 1, function(z)which.max(rmultinom(1, 1, z)))
-    fac <- factor(fac, levels=1:length(obj$lev), labels=obj$lev)
-    fac
-  }) 
+  fac <- apply(probs, 1, function(z)which.max(rmultinom(1, 1, z)))
+  fac <- factor(fac, levels=1:length(obj$lev), labels=obj$lev)
+  unname(fac)
 }
 
 #'@method draw_val svrepstatmisc
 #'@export
 draw_val.svrepstatmisc <- function(obj, probs, ...){
-  lapply(probs, function(x){
-    fac <- apply(x, 1, function(z)which.max(rmultinom(1, 1, z)))
-    fac <- factor(fac, levels=1:length(attr(obj, "lev")), labels=attr(obj, "lev"))
-    fac
-  }) 
+  fac <- apply(probs, 1, function(z)which.max(rmultinom(1, 1, z)))
+  fac <- factor(fac, levels=1:length(attr(obj, "lev")), labels=attr(obj, "lev"))
+  unname(fac)
 }
 
 
@@ -463,35 +445,28 @@ vote_path <- function(blocks,
 #' @param vals A vector of length 2 giving the values that will be used to evaluate the effect size.  This will override
 #' `diffchange`.  The values must be of the same class as the variable being changed.  For example, if the variable being
 #' changed is a factor, the `vals` vector also has to be a factor with the same levels as the variable in `varname`.
-#' @param b_var Logical indicating whether sampling variability on the coefficients should be incorporated in the simulation.
 #' @param R Number of simulations to be conducted.
-#' @param lastMod Should the prediction from the last model be a draw or a the expected value?
 #' @param ... Other arguments to be passed down.
 #'
 #' @importFrom progress progress_bar
 #' @importFrom stats sd
 #' @export
-#'
-#'
-#'
 sim_effect <- function(obj,
                        data,
                        varname,
                        diffchange=c("unit", "sd"),
                        vals=NULL,
-                       b_var = TRUE,
                        R=100,
-                       lastMod = c("expected", "draw"),
                        ...){
   mods <- obj$models
   blocks <- obj$blocks
-  lastMod <- match.arg(lastMod)
   dv <- blocks[[length(blocks)]]
   out_i <- out_d <- out_t <- out_br <-  NULL
   pb <- progress_bar$new(total = R)
   if(!is.null(vals) & length(vals) != 2)stop("vals must be a vector of length 2\n")
   if(!is.null(vals) & inherits(data[[varname]], "factor") & !inherits(vals, "factor"))stop("vals must have the same class as varname\n")
-  which_block <- min(which(sapply(blocks, function(x)max(varname == x)) == 1))
+  which_block <- min(which(sapply(blocks, function(x)varname %in% x)))
+  #which_block <- min(which(sapply(blocks, function(x)max(varname == x)) == 1))
   if(is.factor(data[[varname]]) & is.null(vals)){
     levs <- levels(data[[varname]])
     vals <- factor(c(1,length(levs)),
@@ -499,88 +474,97 @@ sim_effect <- function(obj,
                    labels=levs)
   }
   med <- vector(mode="list", length=length((which_block+1):(length(blocks)-1)))
-  brvars <- c(unlist(blocks[1:which_block]))
-  br_form <- reformulate(brvars, response=dv)
-  dv_type <- find_type(data[[dv]])
-  br_args <- list(formula = br_form, data=data)
-  if(dv_type %in% c("polr", "multinom")){
-    br_args$Hess <- TRUE
-  }
-  if(dv_type == "multinom"){
-    br_args$maxit <- 250
-  }
-  if(dv_type == "glm"){
-    br_args$family <- binomial
-  }
-  br_mod <- do.call(dv_type, br_args)
-  ## TODO: Pass in the predictions and the errors so that the treatment and control predictions use 
-  ##       the same errors rather than different ones 
-  ## Need to re-write the structure of this so the bootstrap happens for each model.  
-  new_0 <- new_1 <- br_0 <- br_1 <- data
-  if(is.null(vals)){
-    delta <- ifelse(diffchange == "sd", sd(data[[varname]], na.rm=TRUE), 1)
-    new_0[[varname]] <- br_0[[varname]] <- new_0[[varname]] - .5*delta
-    new_1[[varname]] <- br_1[[varname]] <- new_1[[varname]] + .5*delta
-  }else{
-    new_0[[varname]] <- br_0[[varname]] <-vals[1]
-    new_1[[varname]] <- br_1[[varname]] <-vals[2]
-  }
-  md0 <- md1 <- data
-  draws <- list()
-  for(i in (which_block+1):(length(blocks)-1)){
-    draws[[i]] <- draw_val(mods[[(i-1)]][[j]], new_0, new_1, R=1000)
-  }
+  #  md0 <- md1 <- data
+  te <- de <- NULL
   for(r in 1:R){
-      k <- 1
-      for(i in (which_block+1):(length(blocks)-1)){
-        for(j in 1:length(blocks[[i]])){
-      new_0[[blocks[[i]][j]]] <- md0[[blocks[[i]][j]]] <- draws[[i]]$c[,r]
-      new_1[[blocks[[i]][j]]] <- md1[[blocks[[i]][j]]] <- draws[[i]]$t[,r]
+    new_0 <- new_1 <-  data
+    if(is.null(vals)){
+      delta <- ifelse(diffchange == "sd", sd(data[[varname]], na.rm=TRUE), 1)
+      new_0[[varname]] <- new_0[[varname]] - .5*delta
+      new_1[[varname]] <- new_1[[varname]] + .5*delta
+    }else{
+      new_0[[varname]] <- vals[1]
+      new_1[[varname]] <- vals[2]
     }
-    tmp0 <- draw_val(mods[[length(mods)]], md0)
-    tmp1 <- draw_val(mods[[length(mods)]], md1)
-    if(!is.matrix(tmp0))tmp0 <- matrix(tmp0, ncol=1)
-    if(!is.matrix(tmp1))tmp1 <- matrix(tmp1, ncol=1)
-    med[[k]] <- rbind(med[[k]], colMeans(tmp1-tmp0))
-    k <- k+1
+    b_direct <- draw_coefs(mods[[length(mods)]], R=1)
+    p0_direct <- prob(mods[[length(mods)]], b_direct, new_0)
+    p1_direct <- prob(mods[[length(mods)]], b_direct, new_1)
+    if(inherits(mods[[length(mods)]], "lm")){
+      e_final <- rnorm(nrow(new_0), 0, summary(mods[[length(mods)]])$sigma)
+    }else{
+      e_final <- NULL
+    }
+    if(inherits(mods[[length(mods)]], "glm")){
+      if(mods[[length(mods)]]$family$family == "gaussian"){
+        e_final <- rnorm(nrow(new_0), 0, summary(mods[[length(mods)]])$dispersion)
+      }
+    }
+    d0_direct <- draw_val(mods[[length(mods)]], p0_direct, e=e_final)
+    d1_direct <- draw_val(mods[[length(mods)]], p1_direct, e=e_final)
+    if(!is.matrix(d0_direct) & !is.factor(d0_direct)){
+      d0_direct <- matrix(d0_direct, ncol=1)
+      d1_direct <- matrix(d1_direct, ncol=1)
+    }  
+    if(is.factor(d0_direct)){
+      tab0 <- table(d0_direct)/sum(table(d0_direct))
+      tab1 <- table(d1_direct)/sum(table(d1_direct))
+    }
+    if(is.matrix(d0_direct)){
+      de <- rbind(de, colMeans(d0_direct-d1_direct))
+    }else{
+      de <- rbind(de, tab1-tab0)
+    }
+    for(i in (which_block+1):(length(blocks)-1)){
+      for(j in 1:length(blocks[[i]])){
+        b <- draw_coefs(mods[[(i-1)]][[j]], R=1)
+        p0 <- prob(mods[[(i-1)]][[j]], b, new_0)
+        p1 <- prob(mods[[(i-1)]][[j]], b, new_1)
+        if(inherits(mods[[(i-1)]][[j]], "lm")){
+          e <- rnorm(nrow(new_0), 0, summary(mods[[(i-1)]][[j]])$sigma)
+        }else{
+          e <- NULL
+        }
+        if(inherits(mods[[(i-1)]][[j]], "glm")){
+          if(mods[[(i-1)]][[j]]$family$family == "gaussian"){
+            e <- rnorm(nrow(new_0), 0, summary(mods[[(i-1)]][[j]])$dispersion)
+          }
+        }
+        new_0[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], p0, e=e)
+        new_1[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], p1, e=e)
+      }
+    }
+    
+    b_final <- draw_coefs(mods[[length(mods)]], R=1)
+    p0_final <- prob(mods[[length(mods)]], b_final, new_0)
+    p1_final <- prob(mods[[length(mods)]], b_final, new_1)
+    tmp0 <- draw_val(mods[[length(mods)]], p0_final, e=e_final)
+    tmp1 <- draw_val(mods[[length(mods)]], p1_final, e=e_final)
+    if(!is.matrix(tmp0) & !is.factor(tmp0)){
+      tmp0 <- matrix(tmp0, ncol=1)
+      tmp1 <- matrix(tmp1, ncol=1)
+    }
+    if(is.factor(tmp0)){
+      tab0 <- table(tmp0)/sum(table(tmp0))
+      tab1 <- table(tmp1)/sum(table(tmp1))
+    }
+    if(is.matrix(tmp0)){
+      te <- rbind(te, colMeans(tmp0-tmp1))
+    }else{
+      te <- rbind(te, tab1-tab0)
+    }
+    pb$tick()
   }
-
-  res0 <- draw_val(mods[[length(mods)]], new_0)
-  res1 <- draw_val(mods[[length(mods)]], new_1)
-  if(!is.matrix(res0))res0 <- matrix(res0, ncol=1)
-  if(!is.matrix(res1))res1 <- matrix(res1, ncol=1)
-  total_effect <- res1-res0
-
-  d0 <- draw_val(mods[[length(mods)]], br_0)
-  d1 <- draw_val(mods[[length(mods)]], br_1)
-  if(!is.matrix(d0))d0 <- matrix(d0, ncol=1)
-  if(!is.matrix(d1))d1 <- matrix(d1, ncol=1)
-
-  direct_effect <- d1-d0
-
-  indirect_effect <- total_effect - direct_effect
-
-  be0 <- draw_val(br_mod, br_0)
-  be1 <- draw_val(br_mod, br_1)
-  if(!is.matrix(be0))be0 <- matrix(be0, ncol=1)
-  if(!is.matrix(be1))be1 <- matrix(be1, ncol=1)
-
-  out_br <- rbind(out_br, colMeans(be1-be0))
-
-  out_t <- rbind(out_t, colMeans(total_effect))
-  out_d <- rbind(out_d, colMeans(direct_effect))
-  out_i <- rbind(out_i, colMeans(indirect_effect))
-  pb$tick()
+  ie <- te-de
+  if("lev" %in% names(obj$models[[length(obj$models)]])){
+    cnms <- obj$models[[length(obj$models)]]$lev
   }
-
-  cnms <- obj$models[[length(obj$models)]]$lev
-  colnames(out_t) <- colnames(out_d) <- colnames(out_i) <- colnames(out_br) <- cnms
-  med <- lapply(med, function(x){
-    colnames(x) <- cnms
-    x
-  })
-
-  res <- list(total = out_t, direct= out_d, indirect=out_i, br = out_br, mediated=med)
+  colnames(de) <- colnames(te) <- colnames(ie) <- cnms
+  # med <- lapply(med, function(x){
+  #   colnames(x) <- cnms
+  #   x
+  # })
+  
+  res <- list(total = te, direct= de, indirect=ie)
   class(res) <- "simeff"
   return(res)
 }
@@ -601,20 +585,23 @@ summary.simeff <- function(object, ..., conf.level=.95){
   a1 <- (1-conf.level)/2
   a2 <- 1-a1
   total_sum = apply(object$total, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
-  total_sum <- as_tibble(t(total_sum), rownames="DV") %>% setNames(c("DV", "Mean", "Lower", "Upper"))
+  rownames(total_sum) <- c("Mean", "Lower", "Upper")
+  total_sum <- as_tibble(t(total_sum), rownames="DV") 
 
   direct_sum = apply(object$direct, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
-  direct_sum <- as_tibble(t(direct_sum), rownames="DV") %>% setNames(c("DV", "Mean", "Lower", "Upper"))
+  rownames(direct_sum) <- c("Mean", "Lower", "Upper")
+  direct_sum <- as_tibble(t(direct_sum), rownames="DV") 
 
   indirect_sum = apply(object$indirect, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
-  indirect_sum <- as_tibble(t(indirect_sum), rownames="DV") %>% setNames(c("DV", "Mean", "Lower", "Upper"))
+  rownames(indirect_sum) <- c("Mean", "Lower", "Upper")
+  indirect_sum <- as_tibble(t(indirect_sum), rownames="DV")
 
   cat("Total Effects:\n")
   print(total_sum)
-  cat("\nIndirect Effects:\n")
-  print(indirect_sum)
   cat("\nDirect Effects:\n")
   print(direct_sum)
+  cat("\nIndirect Effects:\n")
+  print(indirect_sum)
 }
 
 

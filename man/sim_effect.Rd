@@ -10,9 +10,7 @@ sim_effect(
   varname,
   diffchange = c("unit", "sd"),
   vals = NULL,
-  b_var = TRUE,
   R = 100,
-  lastMod = c("expected", "draw"),
   ...
 )
 }
@@ -31,11 +29,7 @@ defines the change so long as \code{vals=NULL}.  If \code{vals} is not \code{NUL
 \code{diffchange}.  The values must be of the same class as the variable being changed.  For example, if the variable being
 changed is a factor, the \code{vals} vector also has to be a factor with the same levels as the variable in \code{varname}.}
 
-\item{b_var}{Logical indicating whether sampling variability on the coefficients should be incorporated in the simulation.}
-
 \item{R}{Number of simulations to be conducted.}
-
-\item{lastMod}{Should the prediction from the last model be a draw or a the expected value?}
 
 \item{...}{Other arguments to be passed down.}
 }
