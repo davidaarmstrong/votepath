@@ -26,7 +26,7 @@ sim_effect <- function(obj,
   #  md0 <- md1 <- data
   te <- de <- NULL
   for(r in 1:R){
-    new_0 <- new_1 <-  data
+    new_0 <- new_1 <-  iedat0 <- iedat1 <- data
     if(is.null(vals)){
       delta <- ifelse(diffchange == "sd", sd(data[[varname]], na.rm=TRUE), 1)
       new_0[[varname]] <- new_0[[varname]] - .5*delta
@@ -70,8 +70,8 @@ sim_effect <- function(obj,
             e <- rnorm(nrow(new0), 0, summary(mods[[i]][[j]])$dispersion)
           }
         }
-        new_0[[blocks[[i]][j]]] <- draw_val(models[[i]][[j]], p0, e=e)
-        new_1[[blocks[[i]][j]]] <- draw_val(models[[i]][[j]], p1, e=e)
+        new_0[[blocks[[i]][j]]] <- iedat0[[blocks[[i]][j]]] <- draw_val(models[[i]][[j]], p0, e=e)
+        new_1[[blocks[[i]][j]]] <- iedat1[[blocks[[i]][j]]] <- draw_val(models[[i]][[j]], p1, e=e)
       }
       }
     
@@ -85,7 +85,21 @@ sim_effect <- function(obj,
       tmp1 <- matrix(tmp1, ncol=1)
     }
     te <- rbind(te, colMeansS(tmp1-tmp0))
-    pb$tick()
+    
+    ## estimated indirect effect
+    p0_final <- prob(mods[[length(mods)]], b_final, new0)
+    p1_final <- prob(mods[[length(mods)]], b_final, new1)
+    tmp0 <- draw_val(mods[[length(mods)]], p0_final, e=e_final)
+    tmp1 <- draw_val(mods[[length(mods)]], p1_final, e=e_final)
+    if(!is.matrix(tmp0)){
+      tmp0 <- matrix(tmp0, ncol=1)
+      tmp1 <- matrix(tmp1, ncol=1)
+    }
+    te <- rbind(te, colMeansS(tmp1-tmp0))
+    
+    
+    
+      pb$tick()
   }
   
   ie <- te-de

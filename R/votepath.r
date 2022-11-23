@@ -11,7 +11,7 @@ pGumbel <- function (q, mu = 0, sigma = 1){
 #' @param obj A model object - currently supported models are `lm`, `glm`, `polr`, `multinom`, `svyglm`, `svyolr` and `svymultinom`. 
 #' 
 #' @export
-draw_coefs <- function(obj, R=100, ...){
+draw_coefs <- function(obj, ...){
   UseMethod("draw_coefs")  
 }
 
@@ -475,9 +475,9 @@ sim_effect <- function(obj,
   }
   med <- vector(mode="list", length=length((which_block+1):(length(blocks)-1)))
   #  md0 <- md1 <- data
-  te <- de <- NULL
+  te <- de <- ie <- NULL
   for(r in 1:R){
-    new_0 <- new_1 <-  data
+    new_0 <- new_1 <- iedat_0 <- iedat_1 <- data
     if(is.null(vals)){
       delta <- ifelse(diffchange == "sd", sd(data[[varname]], na.rm=TRUE), 1)
       new_0[[varname]] <- new_0[[varname]] - .5*delta
@@ -529,12 +529,15 @@ sim_effect <- function(obj,
             e <- rnorm(nrow(new_0), 0, summary(mods[[(i-1)]][[j]])$dispersion)
           }
         }
-        new_0[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], p0, e=e)
-        new_1[[blocks[[i]][j]]] <- draw_val(mods[[(i-1)]][[j]], p1, e=e)
+        new_0[[blocks[[i]][j]]] <- iedat_0[[blocks[[i]][j]]] <-draw_val(mods[[(i-1)]][[j]], p0, e=e)
+        new_1[[blocks[[i]][j]]] <- iedat_1[[blocks[[i]][j]]] <-draw_val(mods[[(i-1)]][[j]], p1, e=e)
       }
     }
     
+
     b_final <- draw_coefs(mods[[length(mods)]], R=1)
+
+    ## Total Effect
     p0_final <- prob(mods[[length(mods)]], b_final, new_0)
     p1_final <- prob(mods[[length(mods)]], b_final, new_1)
     tmp0 <- draw_val(mods[[length(mods)]], p0_final, e=e_final)
@@ -552,12 +555,34 @@ sim_effect <- function(obj,
     }else{
       te <- rbind(te, tab1-tab0)
     }
+
+    ## Calculated Indirect effect
+    p0i_final <- prob(mods[[length(mods)]], b_final, iedat_0)
+    p1i_final <- prob(mods[[length(mods)]], b_final, iedat_1)
+    tmp0i <- draw_val(mods[[length(mods)]], p0i_final, e=e_final)
+    tmp1i <- draw_val(mods[[length(mods)]], p1i_final, e=e_final)
+    if(!is.matrix(tmp0i) & !is.factor(tmp0i)){
+      tmp0i <- matrix(tmp0i, ncol=1)
+      tmp1i <- matrix(tmp1i, ncol=1)
+    }
+    if(is.factor(tmp0i)){
+      tab0i <- table(tmp0i)/sum(table(tmp0i))
+      tab1i <- table(tmp1i)/sum(table(tmp1i))
+    }
+    if(is.matrix(tmp0i)){
+      ie <- rbind(ie, colMeans(tmp1i-tmp0i))
+    }else{
+      ie <- rbind(ie, tab1i-tab0i)
+    }
     pb$tick()
   }
-  ie <- te-de
+  ie_infer <- te-de
+  de_infer <- te-ie
+  te_infer <- ie+de
   if("lev" %in% names(obj$models[[length(obj$models)]])){
     cnms <- obj$models[[length(obj$models)]]$lev
-    colnames(de) <- colnames(te) <- colnames(ie) <- cnms
+    colnames(de) <- colnames(te) <- colnames(ie) <- 
+      colnames(de_infer) <- colnames(te_infer) <- colnames(ie_infer) <- cnms
     
   }
   # med <- lapply(med, function(x){
@@ -565,7 +590,7 @@ sim_effect <- function(obj,
   #   x
   # })
   
-  res <- list(total = te, direct= de, indirect=ie)
+  res <- list(total = te, direct= de, indirect=ie, total_infer = te_infer, direct_infer = de_infer, indirect_infer=ie_infer)
   class(res) <- "simeff"
   return(res)
 }
@@ -596,18 +621,40 @@ summary.simeff <- function(object, ..., conf.level=.95){
   indirect_sum = apply(object$indirect, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
   rownames(indirect_sum) <- c("Mean", "Lower", "Upper")
   indirect_sum <- as_tibble(t(indirect_sum), rownames="DV")
+
+  total_sum_infer = apply(object$total_infer, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
+  rownames(total_sum_infer) <- c("Mean", "Lower", "Upper")
+  total_sum_infer <- as_tibble(t(total_sum_infer), rownames="DV") 
+  
+  direct_sum_infer = apply(object$direct_infer, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
+  rownames(direct_sum_infer) <- c("Mean", "Lower", "Upper")
+  direct_sum_infer <- as_tibble(t(direct_sum_infer), rownames="DV") 
+  
+  indirect_sum_infer = apply(object$indirect_infer, 2, function(x)c(mean(x), unname(quantile(x, c(a1, a2)))))
+  rownames(indirect_sum_infer) <- c("Mean", "Lower", "Upper")
+  indirect_sum_infer <- as_tibble(t(indirect_sum_infer), rownames="DV")
+  
   if(nrow(total_sum) > 1){
     cat("Total Effects:\n")
     print(total_sum)
     cat("\nDirect Effects:\n")
     print(direct_sum)
-    cat("\nIndirect Effects:\n")
+    cat("\nIndirect Effects (Inferred):\n")
+    print(indirect_sum_infer)
+    cat("Total Effects (Inferred):\n")
+    print(total_sum_infer)
+    cat("\nDirect Effects (Inferred):\n")
+    print(direct_sum_infer)
+    cat("\nIndirect Effects (Estimated):\n")
     print(indirect_sum)
   }else{
     bind_rows(
-      total_sum %>% mutate(DV = "Total Effect"), 
+      total_sum %>% mutate(DV = "Total"), 
       direct_sum %>% mutate(DV = "Direct"), 
-      indirect_sum %>% mutate(DV = "Indirect"))
+      indirect_sum_infer %>% mutate(DV = "Indirect (Inferred)"), 
+      total_sum %>% mutate(DV = "Total (Inferred)"), 
+      direct_sum %>% mutate(DV = "Direct (Inferred)"), 
+      indirect_sum %>% mutate(DV = "Indirect (Calculated)"))
   }
 }
 

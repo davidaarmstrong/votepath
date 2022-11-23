@@ -4,7 +4,7 @@
 \alias{draw_coefs}
 \title{Draw coefficients from posterior distribution}
 \usage{
-draw_coefs(obj, R = 100, ...)
+draw_coefs(obj, ...)
 }
 \arguments{
 \item{obj}{A model object - currently supported models are \code{lm}, \code{glm}, \code{polr}, \code{multinom}, \code{svyglm}, \code{svyolr} and \code{svymultinom}.}
