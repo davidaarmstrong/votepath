@@ -8,6 +8,8 @@ draw_coefs(obj, ...)
 }
 \arguments{
 \item{obj}{A model object - currently supported models are \code{lm}, \code{glm}, \code{polr}, \code{multinom}, \code{svyglm}, \code{svyolr} and \code{svymultinom}.}
+
+\item{...}{Other arguments to be passed down, currently not implemented.}
 }
 \description{
 Draw coefficients from their posterior distributions implied by the model.

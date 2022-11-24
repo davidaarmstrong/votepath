@@ -1,15 +1,15 @@
 Package: votepath
-Title: Path Models for Analyzing Votes
-Version: 0.0.1
+Title: Path Models for Analyzing Vote Choice
+Version: 0.1
 Authors@R: 
     person(given = "Dave",
            family = "Armstrongt",
            role = c("aut", "cre"),
-           email = "dave@quantoid.net",
+           email = "davearmstrong.ps@gmail.com",
            comment = c(ORCID = "0000-0002-9358-2489"))
 Description: Simulates mediated effects in block-recursive vote choice models.  
-Imports: MASS, nnet, progress, stats, tibble, survey, svrepmisc
-Remotes: carlganz/svrepmisc
+Imports: MASS, nnet, progress, stats, tibble, survey, dplyr, magrittr
+Suggests: svrepmisc
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true

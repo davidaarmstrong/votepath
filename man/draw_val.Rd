@@ -4,16 +4,16 @@
 \alias{draw_val}
 \title{Take a random draw from a variable variable}
 \usage{
-draw_val(obj, probs, ...)
+draw_val(obj, probs, e = NULL, ...)
 }
 \arguments{
 \item{obj}{Model object of class \code{lm}, \code{glm}, \code{polr} or \code{multinom}}
 
 \item{probs}{A list that was produced by the \code{prob()} function.}
 
-\item{...}{Other arguments to be passed down, currently not implemented.}
-
 \item{e}{matrix or vector of errors to add to the predicted values to generate the draw in an \code{lm} or gaussian \code{glm}.}
+
+\item{...}{Other arguments to be passed down, currently not implemented.}
 }
 \description{
 Take a random draw from a variable variable
